@@ -4,6 +4,13 @@ LI YIN
 
 A0085686L
 
+## How to Run
+
+- For each Scenario, just need to run the respective PolicyX.py
+- No need to run Automonitor.py separately, it is called inside PolicyX.py
+
+
+
 ## Automonitor.py
 
 - Automonitor will be called by PolicyX.py at 1 second time intervals to compute bps for all (switch, protocal, src_ip, dst_ip) tuples using the byteCount field of flowget.
