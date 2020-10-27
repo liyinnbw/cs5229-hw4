@@ -5,8 +5,8 @@ Ghozali, Oct 2020
 """
 
 """
-@Student LI YIN/A0085686L
-Date :26 Oct 2020
+@Student Wen Yiran / A0105610Y
+Date : 2020 Oct 27
 """
 
 
@@ -77,9 +77,10 @@ flowget = flowStat('127.0.0.1')
 monitor = Automonitor(1.0)
                                
 def AutoRouting():
-    alt_route_enabled = False
+    switched = False
+
     while True:
-        monitor.update_all_stats(flowget)
+        monitor.update_monitor(flowget)
         tcp_h2h3 = monitor.get_stats(
             "00:00:00:00:00:00:00:02", 
             "tcp", 
@@ -98,77 +99,43 @@ def AutoRouting():
             "10.0.0.2",
             "10.0.0.5"
             )["throughput"]
-        if tcp_h2h3+udp_h2h5 >= 95000000 and not alt_route_enabled:
-            enable_alt_route()
-            alt_route_enabled = True
-            print('enabled alt route')
-        elif tcp_h2h3+udp_h2h5 <= 85000000 and alt_route_enabled:
-            disable_alt_route()
-            alt_route_enabled = False 
-            print('disabled alt route')
+        if tcp_h2h3+udp_h2h5 >= 95000000 and not switched:
+            switch()
+            switched = True
 
         monitor.print_stats()
         time.sleep(monitor.update_interval)
 
-def enable_alt_route():
+def switch():
     # h2->S2->S1
-    S2h2toh5viaS1udp1 = {'switch':"00:00:00:00:00:00:00:02","name":"S2h2toh5viaS1udp1","cookie":"0",
+    flow1 = {'switch':"00:00:00:00:00:00:00:02","name":"flow1","cookie":"0",
                     "priority":"100","in_port":"1","eth_type":"0x800","ip_proto":"0x11","ipv4_src":"10.0.0.2",
                     "ipv4_dst":"10.0.0.5","active":"true","actions":"output=2"}
     # S1->S3
-    S2h2toh5viaS1udp2 = {'switch':"00:00:00:00:00:00:00:01","name":"S2h2toh5viaS1udp2","cookie":"0",
+    flow2 = {'switch':"00:00:00:00:00:00:00:01","name":"flow2","cookie":"0",
                     "priority":"100","in_port":"2","eth_type":"0x800","ip_proto":"0x11","ipv4_src":"10.0.0.2",
                     "ipv4_dst":"10.0.0.5","active":"true","actions":"output=3"}
     # S3->h5
-    S2h2toh5viaS1udp3 = {'switch':"00:00:00:00:00:00:00:03","name":"S2h2toh5viaS1udp3","cookie":"0",
+    flow3 = {'switch':"00:00:00:00:00:00:00:03","name":"flow3","cookie":"0",
                     "priority":"100","in_port":"4","eth_type":"0x800","ip_proto":"0x11","ipv4_src":"10.0.0.2",
                     "ipv4_dst":"10.0.0.5","active":"true","actions":"output=3"}
 
-    pusher.set(S2h2toh5viaS1udp1)
-    pusher.set(S2h2toh5viaS1udp2)
-    pusher.set(S2h2toh5viaS1udp3)
+    pusher.set(flow1)
+    pusher.set(flow2)
+    pusher.set(flow3)
 
-def disable_alt_route():
-    # h2->S2->S1
-    S2h2toh5viaS1udp1 = {'switch':"00:00:00:00:00:00:00:02","name":"S2h2toh5viaS1udp1","cookie":"0",
-                    "priority":"100","in_port":"1","eth_type":"0x800","ip_proto":"0x11","ipv4_src":"10.0.0.2",
-                    "ipv4_dst":"10.0.0.5","active":"true","actions":"output=2"}
-    # S1->S3
-    S2h2toh5viaS1udp2 = {'switch':"00:00:00:00:00:00:00:01","name":"S2h2toh5viaS1udp2","cookie":"0",
-                    "priority":"100","in_port":"2","eth_type":"0x800","ip_proto":"0x11","ipv4_src":"10.0.0.2",
-                    "ipv4_dst":"10.0.0.5","active":"true","actions":"output=3"}
-    # S3->h5
-    S2h2toh5viaS1udp3 = {'switch':"00:00:00:00:00:00:00:03","name":"S2h2toh5viaS1udp3","cookie":"0",
-                    "priority":"100","in_port":"4","eth_type":"0x800","ip_proto":"0x11","ipv4_src":"10.0.0.2",
-                    "ipv4_dst":"10.0.0.5","active":"true","actions":"output=3"}
 
-    pusher.remove(None, S2h2toh5viaS1udp1)
-    pusher.remove(None, S2h2toh5viaS1udp2)
-    pusher.remove(None, S2h2toh5viaS1udp3)
-
-def S1toS2toS3():
-    #H1->S1->S2->S3->H3/H4/H5
-    print ('switching to H1 -> S1 -> S2 -> S3 -> H3')
-    myflow1 = {'switch':"00:00:00:00:00:00:00:01","name":"Alt1_h1toS2","cookie":"0","priority":"100",
-              "eth_type":"0x0800","ipv4_src":"10.0.0.1","ipv4_dst":"10.0.0.3","active":"true","actions":"output=2"}
-    pusher.set(myflow1)
-    myflow2 = {'switch':"00:00:00:00:00:00:00:02","name":"Alt1_S2toS3","cookie":"0","priority":"100",
-              "eth_type":"0x0800","ipv4_src":"10.0.0.1","ipv4_dst":"10.0.0.3","active":"true","actions":"output=3"}
-    pusher.set(myflow2)
-    myflow3 = {'switch':"00:00:00:00:00:00:00:03","name":"Alt1_S3toh3","cookie":"0","priority":"100",
-              "eth_type":"0x0800","ipv4_src":"10.0.0.1","ipv4_dst":"10.0.0.3","active":"true","actions":"output=1"}
-    pusher.set(myflow3)
-
-def udpForwarding():
-    # Below 4 flows are for setting up the static forwarding for the path H1->S1->S2->H2 & vice-versa
-    # Define static flow for Switch S1 for packet forwarding b/w h1 and h2
+# just copy staticForwarding, but added UDP filter
+def udp():
+    # Below 4 flows are for setting up the UDP forwarding for the path H1->S1->S2->H2 & vice-versa
+    # Define UDP flow for Switch S1 for packet forwarding b/w h1 and h2
     S1Staticflow1 = {'switch':"00:00:00:00:00:00:00:01","name":"S1h1toh2udp","cookie":"0",
                     "priority":"10","in_port":"1","eth_type":"0x800","ip_proto":"0x11",
                     "ipv4_src":"10.0.0.1","ipv4_dst":"10.0.0.2","active":"true","actions":"output=2"}
     S1Staticflow2 = {'switch':"00:00:00:00:00:00:00:01","name":"S1h2toh1udp","cookie":"0",
                     "priority":"10","in_port":"2","eth_type":"0x800","ip_proto":"0x11","ipv4_src":"10.0.0.2",
                     "ipv4_dst":"10.0.0.1","active":"true","actions":"output=1"}
-    # Define static flow for Switch S2 for packet forwarding b/w h1 and h2
+    # Define UDP flow for Switch S2 for packet forwarding b/w h1 and h2
     S2Staticflow1 = {'switch':"00:00:00:00:00:00:00:02","name":"S2h2toh1udp","cookie":"0",
                     "priority":"10","in_port":"1","eth_type":"0x800","ip_proto":"0x11","ipv4_src":"10.0.0.2",
                     "ipv4_dst":"10.0.0.1","active":"true","actions":"output=2"}
@@ -176,15 +143,15 @@ def udpForwarding():
                     "priority":"10","in_port":"2","eth_type":"0x800","ip_proto":"0x11","ipv4_src":"10.0.0.1",
                     "ipv4_dst":"10.0.0.2","active":"true","actions":"output=1"}
 
-    # Below 4 flows are for setting up the static forwarding for the path H1->S1->S3->H3 & vice-versa
-    # Define static flow for Switch S1 for packet forwarding b/w h1 and h3
+    # Below 4 flows are for setting up the UDP forwarding for the path H1->S1->S3->H3 & vice-versa
+    # Define UDP flow for Switch S1 for packet forwarding b/w h1 and h3
     S1Staticflow3 = {'switch':"00:00:00:00:00:00:00:01","name":"S1h1toh3udp","cookie":"0",
                     "priority":"10","in_port":"1","eth_type":"0x800","ip_proto":"0x11","ipv4_src":"10.0.0.1",
                     "ipv4_dst":"10.0.0.3","active":"true","actions":"output=3"}
     S1Staticflow4 = {'switch':"00:00:00:00:00:00:00:01","name":"S1h3toh1udp","cookie":"0",
                     "priority":"10","in_port":"3","eth_type":"0x800","ip_proto":"0x11","ipv4_src":"10.0.0.3",
                     "ipv4_dst":"10.0.0.1","active":"true","actions":"output=1"}
-    # Define static flow for Switch S3 for packet forwarding b/w h1 and h3
+    # Define UDP flow for Switch S3 for packet forwarding b/w h1 and h3
     S3Staticflow1 = {'switch':"00:00:00:00:00:00:00:03","name":"S3h3toh1udp","cookie":"0",
                     "priority":"10","in_port":"1","eth_type":"0x800","ip_proto":"0x11","ipv4_src":"10.0.0.3",
                     "ipv4_dst":"10.0.0.1","active":"true","actions":"output=4"}
@@ -192,15 +159,15 @@ def udpForwarding():
                     "priority":"10","in_port":"4","eth_type":"0x800","ip_proto":"0x11","ipv4_src":"10.0.0.1",
                     "ipv4_dst":"10.0.0.3","active":"true","actions":"output=1"}
 
-    # Below 4 flows are for setting up the static forwarding for the path H2->S2->S3->H3 & vice-versa
-    # Define static flow for Switch S1 for packet forwarding b/w h2 and h3
+    # Below 4 flows are for setting up the UDP forwarding for the path H2->S2->S3->H3 & vice-versa
+    # Define UDP flow for Switch S1 for packet forwarding b/w h2 and h3
     S2Staticflow3 = {'switch':"00:00:00:00:00:00:00:02","name":"S2h2toh3udp","cookie":"0",
                     "priority":"10","in_port":"1","eth_type":"0x800","ip_proto":"0x11","ipv4_src":"10.0.0.2",
                     "ipv4_dst":"10.0.0.3","active":"true","actions":"output=3"}
     S2Staticflow4 = {'switch':"00:00:00:00:00:00:00:02","name":"S2h3toh2udp","cookie":"0",
                     "priority":"10","in_port":"3","eth_type":"0x800","ip_proto":"0x11","ipv4_src":"10.0.0.3",
                     "ipv4_dst":"10.0.0.2","active":"true","actions":"output=1"}
-    # Define static flow for Switch S3 for packet forwarding b/w h2 and h3
+    # Define UDP flow for Switch S3 for packet forwarding b/w h2 and h3
     S3Staticflow3 = {'switch':"00:00:00:00:00:00:00:03","name":"S3h3toh2udp","cookie":"0",
                     "priority":"10","in_port":"1","eth_type":"0x800","ip_proto":"0x11","ipv4_src":"10.0.0.3",
                     "ipv4_dst":"10.0.0.2","active":"true","actions":"output=5"}
@@ -208,15 +175,15 @@ def udpForwarding():
                     "priority":"10","in_port":"5","eth_type":"0x800","ip_proto":"0x11","ipv4_src":"10.0.0.2",
                     "ipv4_dst":"10.0.0.3","active":"true","actions":"output=1"}
 
-    # Below 4 flows are for setting up the static forwarding for the path H1->S1->S3->H4 & vice-versa
-    # Define static flow for Switch S1 for packet forwarding b/w h1 and h4
+    # Below 4 flows are for setting up the UDP forwarding for the path H1->S1->S3->H4 & vice-versa
+    # Define UDP flow for Switch S1 for packet forwarding b/w h1 and h4
     S1Staticflow5 = {'switch':"00:00:00:00:00:00:00:01","name":"S1h1toh4udp","cookie":"0",
                     "priority":"10","in_port":"1","eth_type":"0x800","ip_proto":"0x11","ipv4_src":"10.0.0.1",
                     "ipv4_dst":"10.0.0.4","active":"true","actions":"output=3"}
     S1Staticflow6 = {'switch':"00:00:00:00:00:00:00:01","name":"S1h4toh1udp","cookie":"0",
                     "priority":"10","in_port":"3","eth_type":"0x800","ip_proto":"0x11","ipv4_src":"10.0.0.4",
                     "ipv4_dst":"10.0.0.1","active":"true","actions":"output=1"}
-    # Define static flow for Switch S3 for packet forwarding b/w h1 and h4
+    # Define UDP flow for Switch S3 for packet forwarding b/w h1 and h4
     S3Staticflow5 = {'switch':"00:00:00:00:00:00:00:03","name":"S3h4toh1udp","cookie":"0",
                     "priority":"10","in_port":"2","eth_type":"0x800","ip_proto":"0x11","ipv4_src":"10.0.0.4",
                     "ipv4_dst":"10.0.0.1","active":"true","actions":"output=4"}
@@ -224,15 +191,15 @@ def udpForwarding():
                     "priority":"10","in_port":"4","eth_type":"0x800","ip_proto":"0x11","ipv4_src":"10.0.0.1",
                     "ipv4_dst":"10.0.0.4","active":"true","actions":"output=2"}
 
-    # Below 4 flows are for setting up the static forwarding for the path H2->S2->S3->H4 & vice-versa
-    # Define static flow for Switch S1 for packet forwarding b/w h2 and h4
+    # Below 4 flows are for setting up the UDP forwarding for the path H2->S2->S3->H4 & vice-versa
+    # Define UDP flow for Switch S1 for packet forwarding b/w h2 and h4
     S2Staticflow5 = {'switch':"00:00:00:00:00:00:00:02","name":"S2h2toh4udp","cookie":"0",
                     "priority":"10","in_port":"1","eth_type":"0x800","ip_proto":"0x11","ipv4_src":"10.0.0.2",
                     "ipv4_dst":"10.0.0.4","active":"true","actions":"output=3"}
     S2Staticflow6 = {'switch':"00:00:00:00:00:00:00:02","name":"S2h4toh2udp","cookie":"0",
                     "priority":"10","in_port":"3","eth_type":"0x800","ip_proto":"0x11","ipv4_src":"10.0.0.4",
                     "ipv4_dst":"10.0.0.2","active":"true","actions":"output=1"}
-    # Define static flow for Switch S3 for packet forwarding b/w h2 and h4
+    # Define UDP flow for Switch S3 for packet forwarding b/w h2 and h4
     S3Staticflow7 = {'switch':"00:00:00:00:00:00:00:03","name":"S3h4toh2udp","cookie":"0",
                     "priority":"10","in_port":"2","eth_type":"0x800","ip_proto":"0x11","ipv4_src":"10.0.0.4",
                     "ipv4_dst":"10.0.0.2","active":"true","actions":"output=5"}
@@ -240,15 +207,15 @@ def udpForwarding():
                     "priority":"10","in_port":"5","eth_type":"0x800","ip_proto":"0x11","ipv4_src":"10.0.0.2",
                     "ipv4_dst":"10.0.0.4","active":"true","actions":"output=2"}
 
-    # Below 4 flows are for setting up the static forwarding for the path H1->S1->S3->H5 & vice-versa
-    # Define static flow for Switch S1 for packet forwarding b/w h1 and h5
+    # Below 4 flows are for setting up the UDP forwarding for the path H1->S1->S3->H5 & vice-versa
+    # Define UDP flow for Switch S1 for packet forwarding b/w h1 and h5
     S1Staticflow7 = {'switch':"00:00:00:00:00:00:00:01","name":"S1h1toh5udp","cookie":"0",
                     "priority":"10","in_port":"1","eth_type":"0x800","ip_proto":"0x11","ipv4_src":"10.0.0.1",
                     "ipv4_dst":"10.0.0.5","active":"true","actions":"output=3"}
     S1Staticflow8 = {'switch':"00:00:00:00:00:00:00:01","name":"S1h5toh1udp","cookie":"0",
                     "priority":"10","in_port":"3","eth_type":"0x800","ip_proto":"0x11","ipv4_src":"10.0.0.5",
                     "ipv4_dst":"10.0.0.1","active":"true","actions":"output=1"}
-    # Define static flow for Switch S3 for packet forwarding b/w h1 and h5
+    # Define UDP flow for Switch S3 for packet forwarding b/w h1 and h5
     S3Staticflow9 = {'switch':"00:00:00:00:00:00:00:03","name":"S3h5toh1udp","cookie":"0",
                     "priority":"10","in_port":"3","eth_type":"0x800","ip_proto":"0x11","ipv4_src":"10.0.0.5",
                     "ipv4_dst":"10.0.0.1","active":"true","actions":"output=4"}
@@ -256,15 +223,15 @@ def udpForwarding():
                     "priority":"10","in_port":"4","eth_type":"0x800","ip_proto":"0x11","ipv4_src":"10.0.0.1",
                     "ipv4_dst":"10.0.0.5","active":"true","actions":"output=3"}
 
-    # Below 4 flows are for setting up the static forwarding for the path H2->S2->S3->H5 & vice-versa
-    # Define static flow for Switch S1 for packet forwarding b/w h2 and h5
+    # Below 4 flows are for setting up the UDP forwarding for the path H2->S2->S3->H5 & vice-versa
+    # Define UDP flow for Switch S1 for packet forwarding b/w h2 and h5
     S2Staticflow7 = {'switch':"00:00:00:00:00:00:00:02","name":"S2h2toh5udp","cookie":"0",
                     "priority":"10","in_port":"1","eth_type":"0x800","ip_proto":"0x11","ipv4_src":"10.0.0.2",
                     "ipv4_dst":"10.0.0.5","active":"true","actions":"output=3"}
     S2Staticflow8 = {'switch':"00:00:00:00:00:00:00:02","name":"S2h5toh2udp","cookie":"0",
                     "priority":"10","in_port":"3","eth_type":"0x800","ip_proto":"0x11","ipv4_src":"10.0.0.5",
                     "ipv4_dst":"10.0.0.2","active":"true","actions":"output=1"}
-    # Define static flow for Switch S3 for packet forwarding b/w h2 and h5
+    # Define UDP flow for Switch S3 for packet forwarding b/w h2 and h5
     S3Staticflow11 = {'switch':"00:00:00:00:00:00:00:03","name":"S3h5toh2udp","cookie":"0",
                     "priority":"10","in_port":"3","eth_type":"0x800","ip_proto":"0x11","ipv4_src":"10.0.0.5",
                     "ipv4_dst":"10.0.0.2","active":"true","actions":"output=5"}
@@ -452,6 +419,6 @@ def staticForwarding():
 
 if __name__ =='__main__':
     staticForwarding()
-    udpForwarding()
+    udp()
     AutoRouting()
     pass
