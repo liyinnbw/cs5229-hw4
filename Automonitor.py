@@ -47,7 +47,7 @@ class Automonitor(object):
             myFlows = retData['flows']
             for myFlow in myFlows:
                 myMatch = myFlow['match']
-                if 'ipv4_src' not in myMatch or 'ipv4_src' not in myMatch:
+                if 'ipv4_src' not in myMatch or 'ipv4_dst' not in myMatch:
                     continue
                 ipSrc = myMatch['ipv4_src']
                 ipDst = myMatch['ipv4_dst'] 
